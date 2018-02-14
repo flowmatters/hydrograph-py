@@ -80,11 +80,8 @@ class HydrographDataset(object):
         return False
     return True
 
-  def add_table(self,table,fn=None,**tags):
-    if fn is None:
-      fn = self.create_fn('table','csv')
-
-    existing = self.match('tables',**tags)
+  def _add_data_record(self,collection,fn,**tags):
+    existing = self.match(collection,**tags)
     if len(existing):
       logger.info('Updating existing record')
       record = existing[0]
@@ -94,15 +91,33 @@ class HydrographDataset(object):
         os.unlink(existing_fn)
     else:
       record = OrderedDict()
-      self.index['tables'].append(record)
+      self.index[collection].append(record)
 
     record['filename'] = fn
+    record['tags'] = OrderedDict(**tags)
+
+    self.write_index()
+
+  def add_partitioned(self,table,partition_by,csv_options={},**tags):
+    if not len(partition_by):
+      self.add_table(table,csv_options=csv_options,**tags)
+      return
+
+    first = partition_by[0]
+    rest = partition_by[1:]
+    for val in set(table[first]):
+      subset = table[table[first]==val]
+      tags[first] = val
+      self.add_partitioned(subset,rest,csv_options,**tags)
+
+  def add_table(self,table,csv_options={},fn=None,**tags):
+    if fn is None:
+      fn = self.create_fn('table','csv')
+
+    self._add_data_record('tables',fn,**tags)
 
     full_fn = self.expand_path(fn)
-    table.to_csv(full_fn)
-
-    record['tags'] = OrderedDict(**tags)
-    self.write_index()
+    table.to_csv(full_fn,**csv_options)
 
   def add_coverage(self,coverage,fn=None,**tags):
     pass
