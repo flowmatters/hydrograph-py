@@ -120,14 +120,32 @@ class HydrographDataset(object):
     table.to_csv(full_fn,**csv_options)
 
   def add_coverage(self,coverage,fn=None,**tags):
-    pass
-  
-  def add_timeseries(self,series,fn=None,**tags):
-    pass
+    if fn is None:
+      fn = self.create_fn('coverage','json')
+
+    self._add_data_record('coverages',fn,**tags)
+
+    full_fn = self.expand_path(fn)
+    f = open(full_fn,'w')
+    try:
+      f.write(coverage.to_json())
+    finally:
+      f.close()
+
+  def add_timeseries(self,series,csv_options={},fn=None,**tags):
+    if fn is None:
+      fn = self.create_fn('timeseries','csv')
+
+    self._add_data_record('timeseries',fn,**tags)
+
+    full_fn = self.expand_path(fn)
+    series.to_csv(full_fn,header=True,**csv_options)
   
   def add_timeseries_collection(self,series,column_tag,fn=None,**tags):
-    pass
+    raise Exception('Not implemented')
 
   def add_content(self,content,fn=None,**tags):
-    pass
+    raise Exception('Not implemented')
+
+
 
