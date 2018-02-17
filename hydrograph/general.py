@@ -16,6 +16,12 @@ class HydrographDataset(object):
     self.path = path
     self.ensure()
     self.load_index()
+    self._rewrite = True
+
+  def rewrite(self,val):
+    self._rewrite = val
+    if val:
+      self.write_index()
 
   def expand_path(self,fn):
     return os.path.join(self.path,fn)
@@ -55,6 +61,9 @@ class HydrographDataset(object):
     return result
 
   def write_index(self):
+    if not self._rewrite:
+      return
+
     index_fn = self.expand_path(INDEX_FN)
     json.dump(self.index,open(index_fn,'w'),indent=2)
 
