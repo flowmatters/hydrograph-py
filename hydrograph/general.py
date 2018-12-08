@@ -1,12 +1,21 @@
 import os
+from io import StringIO
 import shutil
 from collections import OrderedDict
 import logging
 import json
+#from json import encoder
 
 logger = logging.getLogger('hydrograph')
 
 INDEX_FN='index.json'
+FILE_PREFIX={
+  'table':'tb',
+  'timeseries':'ts',
+  'timeseriesCollection':'tc',
+  'content':'cn',
+  'coverage':'cv'
+}
 
 def open_dataset(path):
   return HydrographDataset(path)
@@ -18,23 +27,33 @@ class HydrographDataset(object):
     self.load_index()
     self._rewrite = True
 
-  def rewrite(self,val):
+  def rewrite(self,val,compressed=False):
     self._rewrite = val
     if val:
-      self.write_index()
+      self.write_index(compressed)
 
   def expand_path(self,fn):
     return os.path.join(self.path,fn)
 
-  def create_fn(self,prefix,ftype):
+  def create_fn(self,prefix,ftype,contents):
+    ident = None
+    try:
+      from hashlib import md5
+      ident = md5(contents.encode('utf-8')).hexdigest()[:8]
+    except:
+      print('Could not generate MD5')
+      ident = None
+
     if prefix in self.index:
       existing = self.index[prefix]
     else:
       existing = self.index[prefix+'s']
-    i = 1
+    i = len(existing)
+    if ident is None:
+      ident = i
     while True:
       valid = True
-      test_fn = '%s_%d.%s'%(prefix,i,ftype)
+      test_fn = '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
       for e in existing:
         if e['filename']==test_fn:
           valid=False
@@ -42,6 +61,7 @@ class HydrographDataset(object):
       if valid:
         return test_fn
       i += 1
+      ident = i
 
   def load_index(self):
     index_fn = self.expand_path(INDEX_FN)
@@ -60,12 +80,15 @@ class HydrographDataset(object):
     result['coverages'] = []
     return result
 
-  def write_index(self):
+  def write_index(self,compressed=False):
     if not self._rewrite:
       return
 
     index_fn = self.expand_path(INDEX_FN)
-    json.dump(self.index,open(index_fn,'w'),indent=2)
+    if compressed:
+      json.dump(self.index,open(index_fn,'w'))
+    else:
+      json.dump(self.index,open(index_fn,'w'),indent=2)
 
   def ensure(self):
     if not os.path.exists(self.path):
@@ -106,6 +129,7 @@ class HydrographDataset(object):
     record['tags'] = OrderedDict(**tags)
 
     self.write_index()
+    return record
 
   def add_partitioned(self,table,partition_by,csv_options={},**tags):
     if not len(partition_by):
@@ -119,39 +143,64 @@ class HydrographDataset(object):
       tags[first] = val
       self.add_partitioned(subset,rest,csv_options,**tags)
 
-  def add_table(self,table,csv_options={},fn=None,**tags):
+  def _add_tabular(self,data,prefix,collection,csv_options={},fn=None,**tags):
+    sio = StringIO()
+    data.to_csv(sio,**csv_options)
+    txt = sio.getvalue()
     if fn is None:
-      fn = self.create_fn('table','csv')
+      fn = self.create_fn(prefix,'csv',txt)
 
-    self._add_data_record('tables',fn,**tags)
+    self._add_data_record(collection,fn,**tags)
 
     full_fn = self.expand_path(fn)
-    table.to_csv(full_fn,**csv_options)
+    f = open(full_fn,'w')
+    try:
+      f.write(txt)
+    finally:
+      f.close()
+    return fn
 
-  def add_coverage(self,coverage,fn=None,**tags):
+  def add_table(self,table,csv_options={},fn=None,**tags):
+    return self._add_tabular(table,'table','tables',csv_options,fn,**tags)
+  
+  def add_table_existing(self,fn,**tags):
+    self._add_data_record('tables',fn,**tags)
+
+  def add_coverage(self,coverage,decimal_places=None,fn=None,**tags):
+    content = coverage.to_json();
     if fn is None:
-      fn = self.create_fn('coverage','json')
+      fn = self.create_fn('coverage','json',content)
 
     self._add_data_record('coverages',fn,**tags)
 
     full_fn = self.expand_path(fn)
     f = open(full_fn,'w')
     try:
-      f.write(coverage.to_json())
+      f.write(content)
     finally:
       f.close()
 
+    if decimal_places is not None:
+      import math
+      simplify= math.pow(10,-decimal_places)
+      assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s_ %s'%(simplify,decimal_places,full_fn,full_fn))==0
+      os.remove(full_fn)
+      os.rename('%s_'%full_fn,full_fn)
+
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
+    options = csv_options.copy()
+    options['header']=True
+    return self._add_tabular(series,'timeseries','timeseries',options,fn,**tags)
+  
+  def add_timeseries_collection(self,series,column_tag,csv_options={},fn=None,**tags):
     if fn is None:
-      fn = self.create_fn('timeseries','csv')
+      fn = self.create_fn('timeseriesCollection','csv')
 
-    self._add_data_record('timeseries',fn,**tags)
-
+    record = self._add_data_record('timeseriesCollections',fn,**tags)
+    record['columnTag'] = column_tag
+    record['columns'] = series.columns[1:]
     full_fn = self.expand_path(fn)
     series.to_csv(full_fn,header=True,**csv_options)
-  
-  def add_timeseries_collection(self,series,column_tag,fn=None,**tags):
-    raise Exception('Not implemented')
 
   def add_content(self,content,fn=None,**tags):
     raise Exception('Not implemented')
