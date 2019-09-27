@@ -103,6 +103,20 @@ class HydrographDataset(object):
     self.ensure()
     self.load_index()
 
+  def tags(self,datatype='tables',**tags):
+    matching = self.match(datatype,**tags)
+    all_tags = [set(d['tags'].keys()) for d in matching]
+    result = set()
+    for tags in all_tags: result = result.union(tags)
+    return result
+
+  def tag_values(self,tag,datatype='tables',**tags):
+    matching = self.match(datatype,**tags)
+    all_tags = [set([d['tags'][tag]]) for d in matching if tag in d['tags']]
+    result = set()
+    for tags in all_tags: result = result.union(tags)
+    return result
+
   def match(self,datatype='tables',**tags):
     collection = self.index[datatype]
     return [e for e in collection if self.matches(e,**tags)]
