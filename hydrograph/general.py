@@ -54,17 +54,18 @@ class HydrographDataset(object):
     i = len(existing)
     if ident is None:
       ident = i
-    while True:
-      valid = True
-      test_fn = '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
-      for e in existing:
-        if e['filename']==test_fn:
-          valid=False
-          break
-      if valid:
-        return test_fn
-      i += 1
-      ident = i
+      while True:
+        valid = True
+        test_fn = '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
+        for e in existing:
+          if e['filename']==test_fn:
+            valid=False
+            break
+        if valid:
+          return test_fn
+        i += 1
+        ident = i
+    return '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
 
   def load_index(self):
     index_fn = self.expand_path(INDEX_FN)
