@@ -24,7 +24,10 @@ class HydrographDataset(object):
   def __init__(self,path):
     self.path = path
     self.ensure()
-    self.load_index()
+    try:
+      self.load_index()
+    except:
+      pass
     self._rewrite = True
 
   def rewrite(self,val,compressed=False):
