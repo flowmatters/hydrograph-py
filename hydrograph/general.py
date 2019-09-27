@@ -183,8 +183,25 @@ class HydrographDataset(object):
   def add_table_existing(self,fn,**tags):
     self._add_data_record('tables',fn,**tags)
 
-  def add_coverage(self,coverage,decimal_places=None,fn=None,**tags):
-    content = coverage.to_json();
+  def add_coverage(self,coverage,name_attr=None,decimal_places=None,fn=None,**tags):
+    if hasattr(coverage,'to_json'):
+      content = coverage.to_json()
+    elif hasattr(coverage,'keys'):
+      # Dictionary
+      content = json.dumps(coverage)
+    elif os.path.exists(coverage):
+      # Assume string - is it a filename?
+      content = open(coverage,'r').read()
+    else:
+      # Assume loaded JSON text
+      content = coverage
+
+    if name_attr is not None:
+      parsed = json.loads(content)
+      for f in parsed['features']:
+        f['properties']['name'] = f['properties'][name_attr]
+      content = json.dumps(parsed)
+
     if fn is None:
       fn = self.create_fn('coverage','json',content)
 
