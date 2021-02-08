@@ -4,6 +4,7 @@ import shutil
 from collections import OrderedDict
 import logging
 import json
+import pandas as pd
 #from json import encoder
 
 logger = logging.getLogger('hydrograph')
@@ -186,7 +187,7 @@ class HydrographDataset(object):
 
   def add_coverage(self,coverage,name_attr=None,decimal_places=None,fn=None,**tags):
     if hasattr(coverage,'to_json'):
-      content = coverage.to_json()
+      content = coverage.to_json(na='null')
     elif hasattr(coverage,'keys'):
       # Dictionary
       content = json.dumps(coverage)
@@ -239,6 +240,36 @@ class HydrographDataset(object):
 
   def add_content(self,content,fn=None,**tags):
     raise Exception('Not implemented')
+
+  def get_tables(self,**tags):
+    coverages = self.match('coverages',**tags)
+    if len(coverages):
+      import geopandas as gpd
+      coverages = [gpd.read_file(self.expand_path(c['filename'])) for c in coverages]
+
+    tables = self.match('tables',**tags)
+    tables = [pd.read_csv(self.expand_path(t['filename']),index_col=0,parse_dates=True) for t in tables]
+
+    return coverages + tables
+
+  def get_timeseries(self,**tags):
+    series = self.match('timeseries',**tags)
+    return [pd.read_csv(self.expand_path(ts['filename']),
+                        index_col=0,parse_dates=True) for ts in series]
+
+  def copy_tables(self,source,**tags):
+    self._copy_data('tables',source,**tags)
+
+  def copy_timeseries(self,source,**tags):
+    self._copy_data('timeseries',source,**tags)
+
+  def _copy_data(self,datatype,source,**tags):
+    matching = source.match(datatype,**tags)
+    for entry in matching:
+      shutil.copyfile(source.expand_path(entry['filename']),
+                      self.expand_path(entry['filename']))
+      self._add_data_record(datatype,entry['filename'],**entry['tags'])
+
 
 
 
