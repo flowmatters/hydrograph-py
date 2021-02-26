@@ -5,6 +5,7 @@ from collections import OrderedDict
 import logging
 import json
 import pandas as pd
+from glob import glob
 #from json import encoder
 
 logger = logging.getLogger('hydrograph')
@@ -104,6 +105,18 @@ class HydrographDataset(object):
       shutil.rmtree(self.path)
     self.ensure()
     self.load_index()
+
+  def find_unreferenced_files(self):
+    entries = sum([v for _,v in self.index.items()],[])
+    filenames = set([e['filename'] for e in entries] + ['index.json'])
+    all_filenames = set([os.path.basename(fn) for fn in glob(self.expand_path('*'))])
+    return all_filenames - filenames
+
+  def remove_unreferenced_files(self):
+    files_to_remove = self.find_unreferenced_files()
+    for fn in files_to_remove:
+      os.remove(self.expand_path(fn))
+    return files_to_remove
 
   def tags(self,datatype='tables',**tags):
     matching = self.match(datatype,**tags)
