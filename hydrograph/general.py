@@ -34,6 +34,11 @@ class HydrographDataset(object):
     self._rewrite = True
 
   def rewrite(self,val,compressed=False):
+    '''
+    Enable/disable the writing of the index file after each change to the dataset
+
+    Disable (val=False) to prevent writing and hence speed up bulk writes
+    '''
     self._rewrite = val
     if val:
       self.write_index(compressed)
