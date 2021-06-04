@@ -142,6 +142,12 @@ class HydrographDataset(object):
     collection = self.index[datatype]
     return [e for e in collection if self.matches(e,**tags)]
 
+  def match_table(self,datatype='tables',**tags):
+    result = self.match(datatype,**tags)
+    filenames = [r['filename'] for r in result]
+    tag_sets = [r['tags'] for r in result]
+    return pd.DataFrame(tag_sets,index=filenames)
+
   def matches(self,entry,**tags):
     for k,v in tags.items():
       if not k in entry['tags']:
