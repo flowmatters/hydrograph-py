@@ -246,21 +246,24 @@ class HydrographDataset(object):
     self._add_data_record('coverages',fn,**tags)
 
     full_fn = self.expand_path(fn)
-    f = open(full_fn,'w')
-    try:
-      f.write(content)
-    finally:
-      f.close()
 
-    if decimal_places is not None:
+    def write_to(fn):
+      f = open(fn,'w')
+      try:
+        f.write(content)
+      finally:
+        f.close()
+
+    if decimal_places is None:
+      write_to(fn)
+    else:
       import math
       simplify= math.pow(10,-decimal_places)
       tmp_fn = tempfile.mktemp() + '.json'
-      assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s %s'%(simplify,decimal_places,tmp_fn,full_fn))==0
-      os.remove(full_fn)
+      write_to(tmp_fn)
+      assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s %s'%(simplify,decimal_places,full_fn,tmp_fn))==0
       shutil.copyfile(tmp_fn,full_fn)
       os.remove(tmp_fn)
-      # os.rename('%s_'%full_fn,full_fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
     options = csv_options.copy()
