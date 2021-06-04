@@ -7,6 +7,7 @@ import json
 import pandas as pd
 import numpy as np
 from glob import glob
+import tempfile
 #from json import encoder
 
 logger = logging.getLogger('hydrograph')
@@ -254,9 +255,12 @@ class HydrographDataset(object):
     if decimal_places is not None:
       import math
       simplify= math.pow(10,-decimal_places)
-      assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s_ %s'%(simplify,decimal_places,full_fn,full_fn))==0
+      tmp_fn = tempfile.mktemp() + '.json'
+      assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s %s'%(simplify,decimal_places,tmp_fn,full_fn))==0
       os.remove(full_fn)
-      os.rename('%s_'%full_fn,full_fn)
+      shutil.copyfile(tmp_fn,full_fn)
+      os.remove(tmp_fn)
+      # os.rename('%s_'%full_fn,full_fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
     options = csv_options.copy()
