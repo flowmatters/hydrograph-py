@@ -5,6 +5,7 @@ from collections import OrderedDict
 import logging
 import json
 import pandas as pd
+import numpy as np
 from glob import glob
 #from json import encoder
 
@@ -144,7 +145,17 @@ class HydrographDataset(object):
         return False
     return True
 
+  def _sanitize_value(self,v):
+    if isinstance(v,float):
+      if np.isnan(v):
+        return None
+    return v
+
+  def _sanitize_tags(self,tags):
+    return {k:self._sanitize_value(v) for k,v in tags.items()}
+
   def _add_data_record(self,collection,fn,**tags):
+    tags = self._sanitize_tags(tags)
     existing = self.match(collection,**tags)
     if len(existing):
       logger.info('Updating existing record')
