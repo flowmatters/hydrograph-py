@@ -287,6 +287,14 @@ class HydrographDataset(object):
 
     return coverages + tables
 
+  def get_table(self,**tags):
+    tables = self.get_tables(**tags)
+    if len(tables)==0:
+      raise Exception('No matching tables for tags: %s'%str(tags))
+    if len(tables)>1:
+      raise Exception('Multiple tables matching tags: %s'%str(tags))
+    return tables[0]
+
   def get_timeseries(self,**tags):
     series = self.match('timeseries',**tags)
     return [pd.read_csv(self.expand_path(ts['filename']),
