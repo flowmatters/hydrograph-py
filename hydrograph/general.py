@@ -21,9 +21,6 @@ FILE_PREFIX={
   'coverage':'cv'
 }
 
-def open_dataset(path):
-  return HydrographDataset(path)
-
 class HydrographDataset(object):
   def __init__(self,path):
     self.path = path
@@ -320,6 +317,7 @@ class HydrographDataset(object):
                       self.expand_path(entry['filename']))
       self._add_data_record(datatype,entry['filename'],**entry['tags'])
 
-
+def open_dataset(path) -> HydrographDataset:
+  return HydrographDataset(path)
 
 
