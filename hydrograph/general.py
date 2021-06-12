@@ -21,6 +21,8 @@ FILE_PREFIX={
   'coverage':'cv'
 }
 
+METADATA_KEY='metadata'
+
 class HydrographDataset(object):
   def __init__(self,path):
     self.path = path
@@ -83,6 +85,7 @@ class HydrographDataset(object):
 
   def init_index(self):
     result = OrderedDict()
+    result[METADATA_KEY] = OrderedDict()
     result['tables'] = []
     result['timeseries'] = []
     result['timeseriesCollections'] = []
@@ -316,6 +319,13 @@ class HydrographDataset(object):
       shutil.copyfile(source.expand_path(entry['filename']),
                       self.expand_path(entry['filename']))
       self._add_data_record(datatype,entry['filename'],**entry['tags'])
+
+  def add_metadata(self,key,value):
+    self.index[METADATA_KEY][key] = value
+    self.write_index()
+
+  def get_metadata(self,key):
+    return self.index[METADATA_KEY][key]
 
 def open_dataset(path) -> HydrographDataset:
   return HydrographDataset(path)
