@@ -52,7 +52,7 @@ class HydrographDataset(object):
       from hashlib import md5
       ident = md5(contents.encode('utf-8')).hexdigest()[:8]
     except:
-      print('Could not generate MD5')
+      logger.error('Could not generate MD5')
       ident = None
 
     if prefix in self.index:
@@ -170,11 +170,11 @@ class HydrographDataset(object):
     tags = self._sanitize_tags(tags)
     existing = self.match(collection,**tags)
     if len(existing):
-      logger.info('Updating existing record')
+      logger.debug('Updating existing record')
       record = existing[0]
       existing_fn = self.expand_path(record['filename'])
       if os.path.exists(existing_fn):
-        logger.info('Removing existing file: %s'%record['filename'])
+        logger.debug('Removing existing file: %s'%record['filename'])
         os.unlink(existing_fn)
     else:
       record = OrderedDict()
