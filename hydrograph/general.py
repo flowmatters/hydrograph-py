@@ -255,7 +255,7 @@ class HydrographDataset(object):
         f.close()
 
     if decimal_places is None:
-      write_to(fn)
+      write_to(full_fn)
     else:
       import math
       simplify= math.pow(10,-decimal_places)
