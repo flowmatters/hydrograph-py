@@ -260,9 +260,10 @@ class HydrographDataset(object):
       import math
       simplify= math.pow(10,-decimal_places)
       tmp_fn = tempfile.mktemp() + '.json'
+      logger.info(f'Writing coverage to {tmp_fn} ahead of simplification to {decimal_places} decimal places')
       write_to(tmp_fn)
       assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s %s'%(simplify,decimal_places,full_fn,tmp_fn))==0
-      shutil.copyfile(tmp_fn,full_fn)
+      logger.info(f'ogr2ogr successful')
       os.remove(tmp_fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
