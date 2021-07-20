@@ -9,6 +9,7 @@ import numpy as np
 from glob import glob
 import tempfile
 #from json import encoder
+from .minify import minify_geojson
 
 logger = logging.getLogger('hydrograph')
 
@@ -23,8 +24,21 @@ FILE_PREFIX={
 
 METADATA_KEY='metadata'
 
+OPT_UGLIFY_TAGS='uglify_tags'
+OPT_UGLIFY_COVERAGE='uglify_coverage_attributes'
+OPT_COMMON_TIMESERIES_INDEX='extract_timeseries_index'
+DEFAULT_OPTIONS={
+  OPT_UGLIFY_TAGS:False,
+  OPT_UGLIFY_COVERAGE:False,
+  OPT_COMMON_TIMESERIES_INDEX:False
+}
+
 class HydrographDataset(object):
-  def __init__(self,path):
+  def __init__(self,path,options=DEFAULT_OPTIONS,**kwargs):
+    self.options = DEFAULT_OPTIONS.copy()
+    self.options.update(options)
+    self.options.update(kwargs)
+
     self.path = path
     self.ensure()
     try:
@@ -91,6 +105,10 @@ class HydrographDataset(object):
     result['timeseriesCollections'] = []
     result['content'] = []
     result['coverages'] = []
+    if self.options[OPT_UGLIFY_TAGS]:
+      result['tag_lookup'] = {}
+    if self.options[OPT_COMMON_TIMESERIES_INDEX]:
+      result['timseries_indexes'] = {}
     return result
 
   def write_index(self,compressed=False):
@@ -234,6 +252,9 @@ class HydrographDataset(object):
       # Assume loaded JSON text
       content = coverage
 
+    if self.options[OPT_UGLIFY_COVERAGE]:
+      content = minify_geojson(content)
+
     if name_attr is not None:
       parsed = json.loads(content)
       for f in parsed['features']:
@@ -330,5 +351,4 @@ class HydrographDataset(object):
 
 def open_dataset(path) -> HydrographDataset:
   return HydrographDataset(path)
-
 
