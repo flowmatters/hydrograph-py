@@ -349,6 +349,6 @@ class HydrographDataset(object):
   def get_metadata(self,key):
     return self.index[METADATA_KEY][key]
 
-def open_dataset(path) -> HydrographDataset:
-  return HydrographDataset(path)
+def open_dataset(path,options=DEFAULT_OPTIONS,**kwargs) -> HydrographDataset:
+  return HydrographDataset(path,options,**kwargs)
 

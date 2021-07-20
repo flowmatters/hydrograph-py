@@ -38,5 +38,6 @@ def minify_geojson(json_content:str):
       new_name = attribute_lookup[old_name]
       minified_properties[new_name] = f['properties'][old_name]
     f['properties'] = minified_properties
-  coverage['_names'] = attribute_lookup
-  return coverage.dumps(coverage)
+  inverted_lookup = {v:k for k,v in attribute_lookup.items()}
+  coverage['_names'] = inverted_lookup
+  return json.dumps(coverage)
