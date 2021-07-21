@@ -19,7 +19,8 @@ FILE_PREFIX={
   'timeseries':'ts',
   'timeseriesCollection':'tc',
   'content':'cn',
-  'coverage':'cv'
+  'coverage':'cv',
+  'index':'idx'
 }
 
 METADATA_KEY='metadata'
@@ -69,12 +70,12 @@ class HydrographDataset(object):
       logger.error('Could not generate MD5')
       ident = None
 
-    if prefix in self.index:
-      existing = self.index[prefix]
-    else:
-      existing = self.index[prefix+'s']
-    i = len(existing)
     if ident is None:
+      if prefix in self.index:
+        existing = self.index[prefix]
+      else:
+        existing = self.index[prefix+'s']
+      i = len(existing)
       ident = i
       while True:
         valid = True
@@ -184,7 +185,7 @@ class HydrographDataset(object):
   def _sanitize_tags(self,tags):
     return {k:self._sanitize_value(v) for k,v in tags.items()}
 
-  def _add_data_record(self,collection,fn,**tags):
+  def _add_data_record(self,collection,fn,attributes={},**tags):
     tags = self._sanitize_tags(tags)
     existing = self.match(collection,**tags)
     if len(existing):
@@ -200,7 +201,7 @@ class HydrographDataset(object):
 
     record['filename'] = fn
     record['tags'] = OrderedDict(**tags)
-
+    record.update(attributes)
     self.write_index()
     return record
 
@@ -216,14 +217,12 @@ class HydrographDataset(object):
       tags[first] = val
       self.add_partitioned(subset,rest,csv_options,**tags)
 
-  def _add_tabular(self,data,prefix,collection,csv_options={},fn=None,**tags):
+  def _write_csv(self,data,prefix,csv_options={},fn=None):
     sio = StringIO()
     data.to_csv(sio,**csv_options)
     txt = sio.getvalue()
     if fn is None:
       fn = self.create_fn(prefix,'csv',txt)
-
-    self._add_data_record(collection,fn,**tags)
 
     full_fn = self.expand_path(fn)
     f = open(full_fn,'w')
@@ -231,6 +230,11 @@ class HydrographDataset(object):
       f.write(txt)
     finally:
       f.close()
+    return fn
+
+  def _add_tabular(self,data,prefix,collection,csv_options={},fn=None,attributes={},**tags):
+    fn = self._write_csv(data,prefix,csv_options,fn)
+    self._add_data_record(collection,fn,attributes,**tags)
     return fn
 
   def add_table(self,table,csv_options={},fn=None,**tags):
@@ -288,9 +292,17 @@ class HydrographDataset(object):
       os.remove(tmp_fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
+    attributes={}
     options = csv_options.copy()
     options['header']=True
-    return self._add_tabular(series,'timeseries','timeseries',options,fn,**tags)
+
+    if self.options[OPT_COMMON_TIMESERIES_INDEX] and not fn:
+      idx = pd.Series(series.index)
+      idx_fn = self._write_csv(idx,'index',dict(index=False))
+      options['index']=False
+      attributes['index']=idx_fn
+
+    return self._add_tabular(series,'timeseries','timeseries',options,fn,attributes,**tags)
   
   def add_timeseries_collection(self,series,column_tag,csv_options={},fn=None,**tags):
     if fn is None:
