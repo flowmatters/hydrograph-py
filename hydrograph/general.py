@@ -221,10 +221,14 @@ class HydrographDataset(object):
     sio = StringIO()
     data.to_csv(sio,**csv_options)
     txt = sio.getvalue()
-    if fn is None:
+    auto_fn = fn is None
+    if auto_fn:
       fn = self.create_fn(prefix,'csv',txt)
 
     full_fn = self.expand_path(fn)
+    if auto_fn and os.path.exists(full_fn):
+      return fn
+
     f = open(full_fn,'w')
     try:
       f.write(txt)
