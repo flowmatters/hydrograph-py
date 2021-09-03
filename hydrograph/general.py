@@ -302,7 +302,7 @@ class HydrographDataset(object):
 
     if self.options[OPT_COMMON_TIMESERIES_INDEX] and not fn:
       idx = pd.Series(series.index)
-      idx_fn = self._write_csv(idx,'index',dict(index=False))
+      idx_fn = self._write_csv(idx,'index',dict(index=False,header=False))
       options['index']=False
       attributes['index']=idx_fn
 
