@@ -368,3 +368,20 @@ class HydrographDataset(object):
 def open_dataset(path,options=DEFAULT_OPTIONS,**kwargs) -> HydrographDataset:
   return HydrographDataset(path,options,**kwargs)
 
+
+def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
+  full_content = dict()
+
+  for k,v in list(content.items())+list(kwargs.items()):
+    full_content[f'{prefix}{k.replace(" ","-")}'] = v
+  
+  dashboard = OrderedDict(
+    owner = owner,
+    name = name,
+    title = name,
+    includes = [],
+    reference = full_content
+  )
+
+  return dashboard
+
