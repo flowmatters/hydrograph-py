@@ -108,8 +108,8 @@ class HydrographDataset(object):
     result['coverages'] = []
     if self.options[OPT_UGLIFY_TAGS]:
       result['tag_lookup'] = {}
-    if self.options[OPT_COMMON_TIMESERIES_INDEX]:
-      result['timseries_indexes'] = {}
+    # if self.options[OPT_COMMON_TIMESERIES_INDEX]:
+    #   result['timeseries_index'] = []
     return result
 
   def write_index(self,compressed=False):
@@ -308,6 +308,31 @@ class HydrographDataset(object):
 
     return self._add_tabular(series,'timeseries','timeseries',options,fn,attributes,**tags)
   
+  def add_multiple_time_series(self,dataframe,column_tag,csv_options={},**tags):
+    if not self.options[OPT_COMMON_TIMESERIES_INDEX]:
+      for col in dataframe.columns:
+        ctag = {
+          column_tag:col
+        }
+        self.add_timeseries(dataframe[col],**ctag,csv_options=csv_options,**tags)
+      return
+
+    attributes={}
+    options = csv_options.copy()
+    options['header']=True
+
+    idx = pd.Series(dataframe.index)
+    idx_fn = self._write_csv(idx,'index',dict(index=False,header=False))
+    options['index']=False
+    attributes['index']=idx_fn
+    
+    for col in dataframe.columns:
+      series = dataframe[col].rename('COL')
+      ctag = {
+        column_tag:col
+      }
+      self._add_tabular(series,'timeseries','timeseries',options,attributes=attributes,**ctag,**tags)
+
   def add_timeseries_collection(self,series,column_tag,csv_options={},fn=None,**tags):
     if fn is None:
       fn = self.create_fn('timeseriesCollection','csv')
