@@ -160,7 +160,10 @@ class HydrographDataset(object):
 
   def match(self,datatype='tables',**tags):
     collection = self.index[datatype]
-    return [e for e in collection if self.matches(e,**tags)]
+    return self.records_matching(collection,**tags)
+
+  def records_matching(self,records,**tags):
+    return [r for r in records if self.matches(r,**tags)]
 
   def match_table(self,datatype='tables',**tags):
     result = self.match(datatype,**tags)
@@ -172,8 +175,13 @@ class HydrographDataset(object):
     for k,v in tags.items():
       if not k in entry['tags']:
         return False
-      if entry['tags'][k] != v:
+      if not isinstance(v, list):
+        v = [v]
+
+      if not entry['tags'][k] in v:
         return False
+      # if entry['tags'][k] == v:
+      #   return False
     return True
 
   def _sanitize_value(self,v):
