@@ -171,6 +171,15 @@ class HydrographDataset(object):
     tag_sets = [r['tags'] for r in result]
     return pd.DataFrame(tag_sets,index=filenames)
 
+  def unique_tag_groups(self,datatype='tables',**tags):
+    result = self.match(datatype,**tags)
+    tag_groupings = set()
+    for match in result:
+      tag_names = tuple(sorted(match['tags'].keys()))
+      if not tag_names in tag_groupings:
+        tag_groupings.add(tag_names)
+    return tag_groupings
+
   def matches(self,entry,**tags):
     for k,v in tags.items():
       if not k in entry['tags']:
