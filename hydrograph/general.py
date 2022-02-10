@@ -384,8 +384,14 @@ class HydrographDataset(object):
 
   def get_timeseries(self,**tags):
     series = self.match('timeseries',**tags)
-    return [pd.read_csv(self.expand_path(ts['filename']),
-                        index_col=0,parse_dates=True) for ts in series]
+    return [self.load_time_series(ts) for ts in series]
+
+  def load_time_series(self,record):
+    if 'index' in record:
+      idx = pd.read_csv(self.expand_path(record['index']),index_col=0,parse_dates=True,header=None)
+      data = pd.read_csv(self.expand_path(record['filename']),parse_dates=True)
+      return data.set_index(idx.index)
+    return pd.read_csv(self.expand_path(record['filename']),parse_dates=True,index_col=0)
 
   def copy(self,source,**tags):
     for data_type in ['tables','timeseries','coverages']:
