@@ -386,6 +386,19 @@ class HydrographDataset(object):
     series = self.match('timeseries',**tags)
     return [self.load_time_series(ts) for ts in series]
 
+  def get_coverages(self,**tags):
+    coverages = self.match('coverages',**tags)
+    return [self.load_coverage(c) for c in coverages]
+
+  def load_coverage(self,record):
+    import geopandas as gpd
+    with open(self.expand_path(record['filename'])) as fp:
+      raw = json.load(fp)
+      gdf = gpd.GeoDataFrame.from_features(raw['features'])
+      if '_names' in raw:
+        gdf = gdf.rename(columns=raw['_names'])
+      return gdf
+
   def load_time_series(self,record):
     if 'index' in record:
       idx = pd.read_csv(self.expand_path(record['index']),index_col=0,parse_dates=True,header=None)
