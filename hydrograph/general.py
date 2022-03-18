@@ -251,6 +251,8 @@ class HydrographDataset(object):
       f.write(txt)
     finally:
       f.close()
+
+    assert os.path.exists(full_fn)
     return fn
 
   def _add_tabular(self,data,prefix,collection,csv_options={},fn=None,attributes={},**tags):
