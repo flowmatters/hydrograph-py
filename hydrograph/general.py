@@ -421,7 +421,12 @@ class HydrographDataset(object):
     for entry in matching:
       shutil.copyfile(source.expand_path(entry['filename']),
                       self.expand_path(entry['filename']))
-      self._add_data_record(datatype,entry['filename'],**entry['tags'])
+      rec = self._add_data_record(datatype,entry['filename'],**entry['tags'])
+
+      if 'index' in entry:
+        shutil.copyfile(source.expand_path(entry['index']),
+                        self.expand_path(entry['index']))
+        rec['index'] = entry['index']
 
   def add_metadata(self,key,value):
     self.index[METADATA_KEY][key] = value
