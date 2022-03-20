@@ -23,6 +23,14 @@ FILE_PREFIX={
   'index':'idx'
 }
 
+COLLECTION_TYPES=[
+  'tables',
+  'timeseries',
+  'timeseriesCollections',
+  'content',
+  'coverages'
+]
+
 METADATA_KEY='metadata'
 
 OPT_UGLIFY_TAGS='uglify_tags'
@@ -41,7 +49,7 @@ class HydrographDataset(object):
     self.options.update(kwargs)
 
     self.path = path
-    self.ensure()
+    self.ensure_directory()
     try:
       self.load_index()
     except:
@@ -101,11 +109,8 @@ class HydrographDataset(object):
   def init_index(self):
     result = OrderedDict()
     result[METADATA_KEY] = OrderedDict()
-    result['tables'] = []
-    result['timeseries'] = []
-    result['timeseriesCollections'] = []
-    result['content'] = []
-    result['coverages'] = []
+    for collection in COLLECTION_TYPES:
+      result[collection] = []
     if self.options[OPT_UGLIFY_TAGS]:
       result['tag_lookup'] = {}
     # if self.options[OPT_COMMON_TIMESERIES_INDEX]:
@@ -122,14 +127,14 @@ class HydrographDataset(object):
     else:
       json.dump(self.index,open(index_fn,'w'),indent=2)
 
-  def ensure(self):
+  def ensure_directory(self):
     if not os.path.exists(self.path):
       os.makedirs(self.path)
 
   def clear(self):
     if os.path.exists(self.path):
       shutil.rmtree(self.path)
-    self.ensure()
+    self.ensure_directory()
     self.load_index()
 
   def find_unreferenced_files(self):
@@ -143,6 +148,24 @@ class HydrographDataset(object):
     for fn in files_to_remove:
       os.remove(self.expand_path(fn))
     return files_to_remove
+
+  def ensure_all_files_exist(self):
+    missing = []
+    for collection in COLLECTION_TYPES:
+      missing += self.ensure_files_exist(self,collection)
+    if len(missing)>0:
+      unique_missing = list(set([fn for fn,_ in missing]))
+      raise Exception('Missing %d files: %s'%(len(unique_missing,','.join(unique_missing)))
+
+  def ensure_files_exist(self,datatype,**tags):
+    missing = []
+    matching = self.match(datatype,**tags)
+    for d in matching:
+      if not os.path.exists(self.expand_path(d['filename'])):
+        missing.append((d['filename'],d))
+      elif 'index' in d and not os.path.exists(self.expand_path(d['index'])):
+        missing.append(d['index'],d))
+    return missing
 
   def tags(self,datatype='tables',**tags):
     matching = self.match(datatype,**tags)
