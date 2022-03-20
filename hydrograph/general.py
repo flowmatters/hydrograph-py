@@ -164,7 +164,7 @@ class HydrographDataset(object):
       if not os.path.exists(self.expand_path(d['filename'])):
         missing.append((d['filename'],d))
       elif 'index' in d and not os.path.exists(self.expand_path(d['index'])):
-        missing.append(d['index'],d))
+        missing.append((d['index'],d))
     return missing
 
   def tags(self,datatype='tables',**tags):
