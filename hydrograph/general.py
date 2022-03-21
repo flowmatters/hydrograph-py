@@ -53,7 +53,7 @@ class HydrographDataset(object):
     try:
       self.load_index()
     except:
-      pass
+      self.index = self.init_index()
     self._rewrite = True
 
   def rewrite(self,val,compressed=False):
