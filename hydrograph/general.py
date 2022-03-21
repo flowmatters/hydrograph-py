@@ -152,7 +152,7 @@ class HydrographDataset(object):
   def ensure_all_files_exist(self):
     missing = []
     for collection in COLLECTION_TYPES:
-      missing += self.ensure_files_exist(self,collection)
+      missing += self.ensure_files_exist(collection)
     if len(missing)>0:
       unique_missing = list(set([fn for fn,_ in missing]))
       raise Exception('Missing %d files: %s'%(len(unique_missing,','.join(unique_missing))))
