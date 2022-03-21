@@ -444,12 +444,12 @@ class HydrographDataset(object):
   def _copy_data(self,datatype,source,**tags):
     matching = source.match(datatype,**tags)
     for entry in matching:
-      shutil.copyfile(source.expand_path(entry['filename']),
+      copy_if_not_exist(source.expand_path(entry['filename']),
                       self.expand_path(entry['filename']))
       rec = self._add_data_record(datatype,entry['filename'],**entry['tags'])
 
       if 'index' in entry:
-        shutil.copyfile(source.expand_path(entry['index']),
+        copy_if_not_exist(source.expand_path(entry['index']),
                         self.expand_path(entry['index']))
         rec['index'] = entry['index']
 
@@ -479,4 +479,8 @@ def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
   )
 
   return dashboard
+
+def copy_if_not_exist(source,dest):
+  if not os.path.exists(dest):
+    shutil.copy(source,dest)
 
