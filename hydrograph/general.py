@@ -138,7 +138,7 @@ class HydrographDataset(object):
     self.load_index()
 
   def find_unreferenced_files(self):
-    entries = sum([v for _,v in self.index.items()],[])
+    entries = sum([self.index[coll] for coll in COLLECTION_TYPES],[])
     filenames = set([e['filename'] for e in entries] + ['index.json'])
     all_filenames = set([os.path.basename(fn) for fn in glob(self.expand_path('*'))])
     return all_filenames - filenames
