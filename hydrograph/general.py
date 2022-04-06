@@ -388,6 +388,11 @@ class HydrographDataset(object):
   def add_content(self,content,fn=None,**tags):
     raise Exception('Not implemented')
 
+  def remove_record(self,record,collection='tables'):
+    idx = self.index[collection]
+    idx = [rec for rec in idx if rec != record]
+    self.index[collection] = idx
+
   def get_tables(self,**tags):
     coverages = self.match('coverages',**tags)
     if len(coverages):
