@@ -245,10 +245,11 @@ class HydrographDataset(object):
     if len(existing):
       logger.debug('Updating existing record')
       record = existing[0]
-      existing_fn = self.expand_path(record['filename'])
-      if os.path.exists(existing_fn):
-        logger.debug('Removing existing file: %s'%record['filename'])
-        os.unlink(existing_fn)
+      if fn != record['filename']:
+        existing_fn = self.expand_path(record['filename'])
+        if os.path.exists(existing_fn):
+          logger.debug('Removing existing file: %s'%record['filename'])
+          os.unlink(existing_fn)
     else:
       record = OrderedDict()
       self.index[collection].append(record)
