@@ -460,8 +460,12 @@ class HydrographDataset(object):
     return pd.read_csv(self.expand_path(record['filename']),parse_dates=True,index_col=0)
 
   def copy(self,source,**tags):
-    for data_type in ['tables','timeseries','coverages']:
-      self._copy_data(data_type,source,**tags)
+    try:
+      self.rewrite(False)
+      for data_type in ['tables','timeseries','coverages']:
+        self._copy_data(data_type,source,**tags)
+    finally:
+      self.rewrite(True)
 
   def copy_tables(self,source,**tags):
     self._copy_data('tables',source,**tags)
