@@ -494,6 +494,7 @@ class HydrographDataset(object):
     return self.index[METADATA_KEY][key]
 
 def open_dataset(path,mode='rw',options=DEFAULT_OPTIONS,**kwargs) -> HydrographDataset:
+  assert isinstance(mode,str)
   return HydrographDataset(path,mode,options,**kwargs)
 
 
