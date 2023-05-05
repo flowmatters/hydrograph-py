@@ -59,8 +59,8 @@ class HydrographDataset(object):
       self.index = self.init_index()
     self._rewrite = True
 
-  def require_rw(self):
-    if self.mode != 'rw':
+  def require_writable(self):
+    if 'w' not in self.mode:
       raise Exception('Dataset is not in read/write mode')
 
   def rewrite(self,val,compressed=False):
@@ -69,7 +69,7 @@ class HydrographDataset(object):
 
     Disable (val=False) to prevent writing and hence speed up bulk writes
     '''
-    self.require_rw()
+    self.require_writable()
     self._rewrite = val
     if val:
       self.write_index(compressed)
@@ -128,7 +128,7 @@ class HydrographDataset(object):
   def write_index(self,compressed=False):
     if not self._rewrite:
       return
-    self.require_rw()
+    self.require_writable()
 
     index_fn = self.expand_path(INDEX_FN)
     if compressed:
@@ -137,12 +137,12 @@ class HydrographDataset(object):
       json.dump(self.index,open(index_fn,'w'),indent=2)
 
   def ensure_directory(self):
-    self.require_rw()
+    self.require_writable()
     if not os.path.exists(self.path):
       os.makedirs(self.path)
 
   def clear(self):
-    self.require_rw()
+    self.require_writable()
     if os.path.exists(self.path):
       shutil.rmtree(self.path)
     self.ensure_directory()
@@ -157,7 +157,7 @@ class HydrographDataset(object):
     return all_filenames - filenames
 
   def remove_unreferenced_files(self):
-    self.require_rw()
+    self.require_writable()
     files_to_remove = self.find_unreferenced_files()
     for fn in files_to_remove:
       os.remove(self.expand_path(fn))
@@ -261,7 +261,7 @@ class HydrographDataset(object):
     return record
 
   def add_partitioned(self,table,partition_by,csv_options={},**tags):
-    self.require_rw()
+    self.require_writable()
     if not len(partition_by):
       self.add_table(table,csv_options=csv_options,**tags)
       return
@@ -300,15 +300,15 @@ class HydrographDataset(object):
     return fn
 
   def add_table(self,table,csv_options={},fn=None,**tags):
-    self.require_rw()
+    self.require_writable()
     return self._add_tabular(table,'table','tables',csv_options,fn,**tags)
   
   def add_table_existing(self,fn,**tags):
-    self.require_rw()
+    self.require_writable()
     self._add_data_record('tables',fn,**tags)
 
   def add_coverage(self,coverage,name_attr=None,decimal_places=None,fn=None,**tags):
-    self.require_rw()
+    self.require_writable()
     if hasattr(coverage,'to_json'):
       content = coverage.to_json(na='null')
     elif hasattr(coverage,'keys'):
@@ -357,7 +357,7 @@ class HydrographDataset(object):
       os.remove(tmp_fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
-    self.require_rw()
+    self.require_writable()
     attributes={}
     options = csv_options.copy()
     options['header']=True
@@ -371,7 +371,7 @@ class HydrographDataset(object):
     return self._add_tabular(series,'timeseries','timeseries',options,fn,attributes,**tags)
   
   def add_multiple_time_series(self,dataframe,column_tag,csv_options={},**tags):
-    self.require_rw()
+    self.require_writable()
     if not self.options[OPT_COMMON_TIMESERIES_INDEX]:
       for col in dataframe.columns:
         ctag = {
@@ -397,7 +397,7 @@ class HydrographDataset(object):
       self._add_tabular(series,'timeseries','timeseries',options,attributes=attributes,**ctag,**tags)
 
   def add_timeseries_collection(self,series,column_tag,csv_options={},fn=None,**tags):
-    self.require_rw()
+    self.require_writable()
     if fn is None:
       fn = self.create_fn('timeseriesCollection','csv')
 
@@ -411,7 +411,7 @@ class HydrographDataset(object):
     raise Exception('Not implemented')
 
   def remove_record(self,record,collection='tables'):
-    self.require_rw()
+    self.require_writable()
     idx = self.index[collection]
     idx = [rec for rec in idx if rec != record]
     self.index[collection] = idx
@@ -486,7 +486,7 @@ class HydrographDataset(object):
         rec['index'] = entry['index']
 
   def add_metadata(self,key,value):
-    self.require_rw()
+    self.require_writable()
     self.index[METADATA_KEY][key] = value
     self.write_index()
 
