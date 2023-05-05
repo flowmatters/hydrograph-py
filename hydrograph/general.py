@@ -43,7 +43,7 @@ DEFAULT_OPTIONS={
 }
 
 class HydrographDataset(object):
-  def __init__(self,path,mode='rw',options=DEFAULT_OPTIONS,**kwargs):
+  def __init__(self,path,mode,options=DEFAULT_OPTIONS,**kwargs):
     self.mode = mode
     self.options = DEFAULT_OPTIONS.copy()
     self.options.update(options)
@@ -52,6 +52,9 @@ class HydrographDataset(object):
     self.path = path
     if mode=='rw':
       self.ensure_directory()
+
+    if mode=='w':
+      self.clear()
 
     try:
       self.load_index()
