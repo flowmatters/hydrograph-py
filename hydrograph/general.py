@@ -65,6 +65,8 @@ class HydrographDataset(object):
     try:
       self.load_index()
     except:
+      if mode in ['r','ro']:
+        raise Exception('Could not load index file')
       self.index = self.init_index()
     self._rewrite = True
 
@@ -124,6 +126,8 @@ class HydrographDataset(object):
     if os.path.exists(index_fn):
       self.index = json.load(open(index_fn,'r'),
                        object_pairs_hook=OrderedDict)
+    elif self.mode in ['r','ro']:
+      raise Exception('Index file does not exist')
     else:
       self.index = self.init_index()
 
