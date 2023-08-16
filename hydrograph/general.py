@@ -1,15 +1,18 @@
+import atexit
 import os
 from io import StringIO
 import shutil
 from collections import OrderedDict
 import logging
 import json
+import subprocess
 import pandas as pd
 import numpy as np
 from glob import glob
 import tempfile
 #from json import encoder
 from .minify import minify_geojson
+from time import sleep
 
 logger = logging.getLogger('hydrograph')
 
@@ -42,6 +45,9 @@ DEFAULT_OPTIONS={
   OPT_COMMON_TIMESERIES_INDEX:False
 }
 
+DEFAULT_HOST_PORT=8000
+GIVE_UP_HOST_PORT=8100
+
 class HydrographDataset(object):
   def __init__(self,path,mode,options=DEFAULT_OPTIONS,**kwargs):
     self.mode = mode
@@ -61,6 +67,10 @@ class HydrographDataset(object):
     except:
       self.index = self.init_index()
     self._rewrite = True
+
+    self.hosting = False
+    self.port = None
+    self.host_process = None
 
   def require_writable(self):
     if 'w' not in self.mode:
@@ -305,7 +315,7 @@ class HydrographDataset(object):
   def add_table(self,table,csv_options={},fn=None,**tags):
     self.require_writable()
     return self._add_tabular(table,'table','tables',csv_options,fn,**tags)
-  
+
   def add_table_existing(self,fn,**tags):
     self.require_writable()
     self._add_data_record('tables',fn,**tags)
@@ -372,7 +382,7 @@ class HydrographDataset(object):
       attributes['index']=idx_fn
 
     return self._add_tabular(series,'timeseries','timeseries',options,fn,attributes,**tags)
-  
+
   def add_multiple_time_series(self,dataframe,column_tag,csv_options={},**tags):
     self.require_writable()
     if not self.options[OPT_COMMON_TIMESERIES_INDEX]:
@@ -391,7 +401,7 @@ class HydrographDataset(object):
     idx_fn = self._write_csv(idx,'index',dict(index=False,header=False))
     options['index']=False
     attributes['index']=idx_fn
-    
+
     for col in dataframe.columns:
       series = dataframe[col].rename('COL')
       ctag = {
@@ -456,11 +466,15 @@ class HydrographDataset(object):
       return gdf
 
   def load_time_series(self,record):
-    if 'index' in record:
-      idx = pd.read_csv(self.expand_path(record['index']),index_col=0,parse_dates=True,header=None)
-      data = pd.read_csv(self.expand_path(record['filename']),parse_dates=True)
-      return data.set_index(idx.index)
-    return pd.read_csv(self.expand_path(record['filename']),parse_dates=True,index_col=0)
+    try:
+      if 'index' in record:
+        idx = pd.read_csv(self.expand_path(record['index']),index_col=0,parse_dates=True,header=None)
+        data = pd.read_csv(self.expand_path(record['filename']),parse_dates=True)
+        return data.set_index(idx.index)
+      return pd.read_csv(self.expand_path(record['filename']),parse_dates=True,index_col=0)
+    except Exception as e:
+      logger.error('Failed to load time series: %s'%str(record))
+      raise e
 
   def copy(self,source,**tags):
     try:
@@ -496,6 +510,40 @@ class HydrographDataset(object):
   def get_metadata(self,key):
     return self.index[METADATA_KEY][key]
 
+  def host(self,port=None):
+    assert not self.hosting
+
+    if port is None:
+      port = DEFAULT_HOST_PORT
+      while port <= GIVE_UP_HOST_PORT:
+        try:
+          self.host(port)
+          return
+        except Exception as e:
+          logger.info('Failed to host on port %d: %s'%(port,e))
+          port += 1
+      raise Exception('Failed to find open port to host on')
+
+    self.host_process = subprocess.Popen(['python','-m','hydrograph._host',str(port)],cwd=self.path)
+    sleep(0.5)
+    if self.host_process.poll() is not None:
+      self.host_process = None
+      raise Exception('Failed to start host process')
+    self.port = port
+    self.hosting = True
+
+    def close_on_exit():
+      self.stop_hosting()
+
+    atexit.register(close_on_exit)
+
+  def stop_hosting(self):
+    if not self.hosting:
+      return
+    self.hosting = False
+    self.host_process.kill()
+    self.port = None
+
 def open_dataset(path,mode='rw',options=DEFAULT_OPTIONS,**kwargs) -> HydrographDataset:
   assert isinstance(mode,str)
   return HydrographDataset(path,mode,options,**kwargs)
@@ -506,7 +554,7 @@ def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
 
   for k,v in list(content.items())+list(kwargs.items()):
     full_content[f'{prefix}{k.replace(" ","-")}'] = v
-  
+
   dashboard = OrderedDict(
     owner = owner,
     name = name,
