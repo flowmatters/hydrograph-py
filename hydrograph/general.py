@@ -319,6 +319,8 @@ class HydrographDataset(object):
 
   def add_table(self,table,csv_options={},fn=None,**tags):
     self.require_writable()
+    if table.geometry is not None:
+      raise Warning('Use add_coverage to add GeoDataFrames')
     return self._add_tabular(table,'table','tables',csv_options,fn,**tags)
 
   def add_table_existing(self,fn,**tags):
