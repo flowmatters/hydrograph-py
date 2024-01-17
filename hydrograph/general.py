@@ -487,8 +487,10 @@ class HydrographDataset(object):
     if len(coverages):
       import geopandas as gpd
       # return [_open(self.expand_path(c['filename']), raw=True, auth=self.auth) for c in coverages]
-      coverages = [gpd.GeoDataFrame.from_features(_open(self.expand_path(c['filename']), raw=True, auth=self.auth)["features"]) for c in coverages]
-
+      if self.is_remote:
+        coverages = [gpd.GeoDataFrame.from_features(_open(self.expand_path(c['filename']), raw=True, auth=self.auth)["features"]) for c in coverages]
+      else:
+        coverages = [gpd.read_file(self.expand_path(c['filename'])) for c in coverages]
     tables = self.match('tables',**tags)
     tables = [pd.read_csv(_open(self.expand_path(t['filename']), auth=self.auth),index_col=0,parse_dates=True) for t in tables]
 
