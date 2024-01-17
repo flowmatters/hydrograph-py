@@ -49,15 +49,28 @@ DEFAULT_OPTIONS={
 DEFAULT_HOST_PORT=8000
 GIVE_UP_HOST_PORT=8100
 
-def _open(fn,mode='r', **kwargs):
+def _open(fn,mode='r', raw=False, **kwargs):
   if '://' in fn:
     r = requests.get(fn, **kwargs)
     assert mode == 'r'
     if r.status_code != 200:
       raise Exception('Failed to open remote file: %s'%fn)
+    if raw:
+      # return r.text
+      # print(r.json())
+      return r.json()
+    #   return r.raw.read().decode('utf-8')
     return StringIO(r.text)
+  elif raw:
+    return fn
+  return open(fn,mode)
+
+def _exists(fn, **kwargs):
+  if '://' in fn:
+    r = requests.head(fn, **kwargs)
+    return r.status_code == 200
   else:
-    return open(fn,mode)
+    return os.path.exists(fn)
 
 class HydrographDataset(object):
   def __init__(self,path,mode,options=DEFAULT_OPTIONS, auth = None, **kwargs):
@@ -156,7 +169,7 @@ class HydrographDataset(object):
         self.index = r.json()
       except:
         raise Exception('Could not load index file from {}'.format(index_fn))
-    elif os.path.exists(index_fn):
+    elif _exists(index_fn, auth=self.auth):
       self.index = json.load(_open(index_fn,'r', auth=self.auth),
                        object_pairs_hook=OrderedDict)
     elif self.mode in ['r','ro']:
@@ -188,12 +201,12 @@ class HydrographDataset(object):
 
   def ensure_directory(self):
     self.require_writable()
-    if not os.path.exists(self.path):
+    if not _exists(self.path, auth=self.auth):
       os.makedirs(self.path)
 
   def clear(self):
     self.require_writable()
-    if os.path.exists(self.path):
+    if _exists(self.path, auth=self.auth):
       shutil.rmtree(self.path)
     self.ensure_directory()
     self.load_index()
@@ -225,9 +238,9 @@ class HydrographDataset(object):
     missing = []
     matching = self.match(datatype,**tags)
     for d in matching:
-      if not os.path.exists(self.expand_path(d['filename'])):
+      if not _exists(self.expand_path(d['filename']), auth=self.auth):
         missing.append((d['filename'],d))
-      elif 'index' in d and not os.path.exists(self.expand_path(d['index'])):
+      elif 'index' in d and not _exists(self.expand_path(d['index']), auth=self.auth):
         missing.append((d['index'],d))
     return missing
 
@@ -298,7 +311,7 @@ class HydrographDataset(object):
       record = existing[0]
       if fn != record['filename']:
         existing_fn = self.expand_path(record['filename'])
-        if os.path.exists(existing_fn):
+        if _exists(existing_fn, auth=self.auth):
           logger.debug('Removing existing file: %s'%record['filename'])
           os.unlink(existing_fn)
     else:
@@ -333,7 +346,7 @@ class HydrographDataset(object):
       fn = self.create_fn(prefix,'csv',txt)
 
     full_fn = self.expand_path(fn)
-    if auto_fn and os.path.exists(full_fn):
+    if auto_fn and _exists(full_fn, auth=self.auth):
       return fn
 
     f = _open(full_fn,'w', auth=self.auth)
@@ -342,7 +355,7 @@ class HydrographDataset(object):
     finally:
       f.close()
 
-    assert os.path.exists(full_fn)
+    assert _exists(full_fn, auth=self.auth)
     return fn
 
   def _add_tabular(self,data,prefix,collection,csv_options={},fn=None,attributes={},**tags):
@@ -367,7 +380,7 @@ class HydrographDataset(object):
     elif hasattr(coverage,'keys'):
       # Dictionary
       content = json.dumps(coverage)
-    elif os.path.exists(coverage):
+    elif _exists(coverage, auth=self.auth):
       # Assume string - is it a filename?
       content = _open(coverage,'r', auth=self.auth).read()
     else:
@@ -473,10 +486,11 @@ class HydrographDataset(object):
     coverages = self.match('coverages',**tags)
     if len(coverages):
       import geopandas as gpd
-      coverages = [gpd.read_file(self.expand_path(c['filename'])) for c in coverages]
+      # return [_open(self.expand_path(c['filename']), raw=True, auth=self.auth) for c in coverages]
+      coverages = [gpd.GeoDataFrame.from_features(_open(self.expand_path(c['filename']), raw=True, auth=self.auth)["features"]) for c in coverages]
 
     tables = self.match('tables',**tags)
-    tables = [pd.read_csv(self.expand_path(t['filename']),index_col=0,parse_dates=True) for t in tables]
+    tables = [pd.read_csv(_open(self.expand_path(t['filename']), auth=self.auth),index_col=0,parse_dates=True) for t in tables]
 
     return coverages + tables
 
@@ -508,10 +522,10 @@ class HydrographDataset(object):
   def load_time_series(self,record):
     try:
       if 'index' in record:
-        idx = pd.read_csv(self.expand_path(record['index']),index_col=0,parse_dates=True,header=None)
-        data = pd.read_csv(self.expand_path(record['filename']),parse_dates=True)
+        idx = pd.read_csv(_open(self.expand_path(record['index']), auth=self.auth),index_col=0,parse_dates=True,header=None)
+        data = pd.read_csv(_open(self.expand_path(record['filename']), auth=self.auth),parse_dates=True)
         return data.set_index(idx.index)
-      return pd.read_csv(self.expand_path(record['filename']),parse_dates=True,index_col=0)
+      return pd.read_csv(_open(self.expand_path(record['filename']), auth=self.auth),parse_dates=True,index_col=0)
     except Exception as e:
       logger.error('Failed to load time series: %s'%str(record))
       raise e
@@ -610,5 +624,5 @@ def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
 
 def copy_if_not_exist(source,dest):
   if not os.path.exists(dest):
-    shutil.copy(source,dest)
+    shutil.copy(source,dest) # TD: this will be a problem for remote sources
 
