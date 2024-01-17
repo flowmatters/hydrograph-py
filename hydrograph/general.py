@@ -13,6 +13,7 @@ import tempfile
 #from json import encoder
 from .minify import minify_geojson
 from time import sleep
+import requests
 
 logger = logging.getLogger('hydrograph')
 
@@ -48,13 +49,36 @@ DEFAULT_OPTIONS={
 DEFAULT_HOST_PORT=8000
 GIVE_UP_HOST_PORT=8100
 
+def _open(fn,mode='r', **kwargs):
+  if '://' in fn:
+    r = requests.get(fn, **kwargs)
+    assert mode == 'r'
+    if r.status_code != 200:
+      raise Exception('Failed to open remote file: %s'%fn)
+    return StringIO(r.text)
+  else:
+    return open(fn,mode)
+
 class HydrographDataset(object):
-  def __init__(self,path,mode,options=DEFAULT_OPTIONS,**kwargs):
+  def __init__(self,path,mode,options=DEFAULT_OPTIONS, auth = None, **kwargs):
     self.mode = mode
     self.options = DEFAULT_OPTIONS.copy()
     self.options.update(options)
     self.options.update(kwargs)
+  
+    if "://" in path:
+      # assume a remote dataset
+      if mode in ['w','rw']:
+        raise Exception('Cannot open remote dataset in write mode')
+      self.is_remote = True
+    else:
+      self.is_remote = False
 
+    if auth == None:
+      auth = ("", "")
+      if self.is_remote:
+        logging.warning("No authentication provided for remote dataset")
+    self.auth = requests.auth.HTTPBasicAuth(auth[0], auth[1]) # User, Password
     self.path = path
     if mode=='rw':
       self.ensure_directory()
@@ -63,11 +87,12 @@ class HydrographDataset(object):
       self.clear()
 
     try:
-      self.load_index()
+      self.load_index() # TD
     except:
       if mode in ['r','ro']:
         raise Exception('Could not load index file')
-      self.index = self.init_index()
+      self.index = self.init_index() # TD
+    
     self._rewrite = True
 
     self.hosting = False
@@ -87,12 +112,14 @@ class HydrographDataset(object):
     self.require_writable()
     self._rewrite = val
     if val:
-      self.write_index(compressed)
+      self.write_index(compressed) # TD
 
-  def expand_path(self,fn):
+  def expand_path(self,fn): # TD
+    # if self.is_remote:
+    #   return os.path.join(self.path,fn, )
     return os.path.join(self.path,fn)
 
-  def create_fn(self,prefix,ftype,contents):
+  def create_fn(self,prefix,ftype,contents): # TD
     ident = None
     try:
       from hashlib import md5
@@ -121,10 +148,16 @@ class HydrographDataset(object):
         ident = i
     return '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
 
-  def load_index(self):
+  def load_index(self): # TD
     index_fn = self.expand_path(INDEX_FN)
-    if os.path.exists(index_fn):
-      self.index = json.load(open(index_fn,'r'),
+    if self.is_remote:
+      try:
+        r = requests.get(index_fn,auth=self.auth)
+        self.index = r.json()
+      except:
+        raise Exception('Could not load index file from {}'.format(index_fn))
+    elif os.path.exists(index_fn):
+      self.index = json.load(_open(index_fn,'r', auth=self.auth),
                        object_pairs_hook=OrderedDict)
     elif self.mode in ['r','ro']:
       raise Exception('Index file does not exist')
@@ -149,9 +182,9 @@ class HydrographDataset(object):
 
     index_fn = self.expand_path(INDEX_FN)
     if compressed:
-      json.dump(self.index,open(index_fn,'w'))
+      json.dump(self.index,_open(index_fn,'w', auth=self.auth))
     else:
-      json.dump(self.index,open(index_fn,'w'),indent=2)
+      json.dump(self.index,_open(index_fn,'w', auth=self.auth),indent=2)
 
   def ensure_directory(self):
     self.require_writable()
@@ -303,7 +336,7 @@ class HydrographDataset(object):
     if auto_fn and os.path.exists(full_fn):
       return fn
 
-    f = open(full_fn,'w')
+    f = _open(full_fn,'w', auth=self.auth)
     try:
       f.write(txt)
     finally:
@@ -336,7 +369,7 @@ class HydrographDataset(object):
       content = json.dumps(coverage)
     elif os.path.exists(coverage):
       # Assume string - is it a filename?
-      content = open(coverage,'r').read()
+      content = _open(coverage,'r', auth=self.auth).read()
     else:
       # Assume loaded JSON text
       content = coverage
@@ -358,7 +391,7 @@ class HydrographDataset(object):
     full_fn = self.expand_path(fn)
 
     def write_to(fn):
-      f = open(fn,'w')
+      f = _open(fn,'w', auth=self.auth)
       try:
         f.write(content)
       finally:
@@ -465,7 +498,7 @@ class HydrographDataset(object):
 
   def load_coverage(self,record):
     import geopandas as gpd
-    with open(self.expand_path(record['filename'])) as fp:
+    with _open(self.expand_path(record['filename']), auth=self.auth) as fp:
       raw = json.load(fp)
       gdf = gpd.GeoDataFrame.from_features(raw['features'])
       if '_names' in raw:
@@ -553,8 +586,11 @@ class HydrographDataset(object):
 
 def open_dataset(path,mode='rw',options=DEFAULT_OPTIONS,**kwargs) -> HydrographDataset:
   assert isinstance(mode,str)
-  return HydrographDataset(path,mode,options,**kwargs)
+  return HydrographDataset(path,mode,options, auth=None, **kwargs)
 
+def open_remote(url, auth = None, options=DEFAULT_OPTIONS, **kwargs) -> HydrographDataset:
+  assert isinstance(url,str)
+  return HydrographDataset(url, mode="r", options=options, auth = auth, **kwargs)
 
 def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
   full_content = dict()
