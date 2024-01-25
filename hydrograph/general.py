@@ -14,8 +14,11 @@ import tempfile
 from .minify import minify_geojson
 from time import sleep
 import requests
+import datetime
 
 logger = logging.getLogger('hydrograph')
+
+API_URL = "https://staging.hydrograph.io/api/datasets/"
 
 INDEX_FN='index.json'
 FILE_PREFIX={
@@ -100,11 +103,11 @@ class HydrographDataset(object):
       self.clear()
 
     try:
-      self.load_index() # TD
+      self.load_index() 
     except:
       if mode in ['r','ro']:
         raise Exception('Could not load index file')
-      self.index = self.init_index() # TD
+      self.index = self.init_index() 
     
     self._rewrite = True
 
@@ -125,14 +128,14 @@ class HydrographDataset(object):
     self.require_writable()
     self._rewrite = val
     if val:
-      self.write_index(compressed) # TD
+      self.write_index(compressed) 
 
-  def expand_path(self,fn): # TD
+  def expand_path(self,fn): 
     # if self.is_remote:
     #   return os.path.join(self.path,fn, )
     return os.path.join(self.path,fn)
 
-  def create_fn(self,prefix,ftype,contents): # TD
+  def create_fn(self,prefix,ftype,contents): 
     ident = None
     try:
       from hashlib import md5
@@ -161,7 +164,7 @@ class HydrographDataset(object):
         ident = i
     return '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
 
-  def load_index(self): # TD
+  def load_index(self): 
     index_fn = self.expand_path(INDEX_FN)
     if self.is_remote:
       try:
@@ -498,9 +501,9 @@ class HydrographDataset(object):
 
   def get_table(self,**tags):
     tables = self.get_tables(**tags)
-    if len(tables)==0:
+    if len(tables) == 0:
       raise Exception('No matching tables for tags: %s'%str(tags))
-    if len(tables)>1:
+    if len(tables) > 1:
       raise Exception('Multiple tables matching tags: %s'%str(tags))
     return tables[0]
 
@@ -626,5 +629,53 @@ def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
 
 def copy_if_not_exist(source,dest):
   if not os.path.exists(dest):
-    shutil.copy(source,dest) # TD: this will be a problem for remote sources
+    shutil.copy(source,dest)
 
+class APIDataSet(HydrographDataset):
+  def __init__(self, name, url_base = API_URL, owner="joel"):
+    # super().__init__(name, mode="r")
+    self.url = url_base + owner+ "/" + name + "/"
+    self.dataset = name
+    self.owner = owner
+    self.path = self.url
+  
+  def tags(self):
+    return _open(self.url + "tags/", raw=True)
+
+  def tag_values(self, tag):
+    return _open(self.url + "tags/" + tag + "/", raw=True)
+
+  def match(self, datatype="tables", **tags)-> dict:
+    return _open(self.url + "{}?".format(datatype) + "&".join([f"{k}={v}" for k,v in tags.items()]), raw=True)
+
+  def get_timeseries(self, **tags):
+    d = self.match("timeseries", **tags)
+    indexes = d["indexes"]
+    for i in range(len(indexes)):
+      for k, entry in enumerate(indexes[i]):
+        indexes[i][k] = datetime.datetime.fromtimestamp(entry/1000)
+    return [pd.DataFrame(d["timeseries"][i]["values"], index=d["indexes"][i]) for i in range(len(d["indexes"]))]
+  
+  def get_tables(self, **tags):
+    d = self.match("tables", **tags)
+    return [pd.DataFrame(i["data"], index=i["index"]) for i in d["tables"]]
+  
+  def require_writable(self):
+    raise Exception("Cannot write to API dataset")
+  
+  def get_coverages(self, **tags):
+    import geopandas as gpd
+    d = self.match("tables", **tags)
+    from shapely.geometry import shape #index=i["index"]
+    dfs = [gpd.GeoDataFrame(i["data"]) for i in d["tables"] if "geometry" in i["data"].keys()]
+    for k, df in enumerate(dfs):
+      # df["geometry"] = df.apply(lambda x: shape(x["geometry"])) #TD fix this to accellerate
+      geometry = []
+      for feature in df["geometry"]:
+        f = shape(feature)
+        geometry.append(f)
+      df.set_geometry(geometry, inplace=True)
+      # df.set_index("geometry", inplace=True)
+    return dfs
+
+    
