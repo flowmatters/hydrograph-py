@@ -29,26 +29,26 @@ def read(*parts):
         return f.read()
 
 setup(
-        name='hydrograph-py',
-        version=version,
-        description="Build datasets for publication on hydrograph",
-        packages=["hydrograph"],
-        long_description=read("README.md"),
-        classifiers=filter(None, classifiers.split("\n")),
-        keywords='hydrograph dataset',
-        author='Joel Rahman',
-        author_email='joel@flowmatters.com.au',
-        url='https://github.com/flowmatters/hydrograph-py',
-        license='ISC',
-        py_modules=['hydrograph'],
-        include_package_data=True,
-        zip_safe=True,
-        test_suite = 'nose.collector',
-        install_requires=[
-            'requests',
-            'pandas'
-        ],
-        extras_require={
-            'test': [],
-        },
+        # name='hydrograph-py',
+        # version=version,
+        # description="Build datasets for publication on hydrograph",
+        # packages=["hydrograph"],
+        # long_description=read("README.md"),
+        # classifiers=filter(None, classifiers.split("\n")),
+        # keywords='hydrograph dataset',
+        # author='Joel Rahman',
+        # author_email='joel@flowmatters.com.au',
+        # url='https://github.com/flowmatters/hydrograph-py',
+        # license='ISC',
+        # py_modules=['hydrograph'],
+        # include_package_data=True,
+        # zip_safe=True,
+        test_suite = 'nose.collector', # unsupported by pyproject.toml
+        # install_requires=[
+        #     'requests',
+        #     'pandas'
+        # ],
+        # extras_require={
+        #     'test': [],
+        # },
 )
