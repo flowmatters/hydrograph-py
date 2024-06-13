@@ -289,15 +289,20 @@ class HydrographDataset(object):
     return tag_groupings
 
   def matches(self,entry,**tags):
-    for k,v in tags.items():
+    for k,values in tags.items():
       if not k in entry['tags']:
         return False
-      if not isinstance(v, list):
-        v = [v]
+      if not isinstance(values, list):
+        values = [values]
 
-      if not entry['tags'][k] in v:
+      if entry['tags'][k] not in values:
         return False
-      # if entry['tags'][k] == v:
+      # matched=False
+      # for v in values:
+      #   if entry['tags'][k]==v:
+      #     matched=True
+      #     break
+      # if not matched:
       #   return False
     return True
 
