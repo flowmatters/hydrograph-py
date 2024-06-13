@@ -43,10 +43,14 @@ METADATA_KEY='metadata'
 OPT_UGLIFY_TAGS='uglify_tags'
 OPT_UGLIFY_COVERAGE='uglify_coverage_attributes'
 OPT_COMMON_TIMESERIES_INDEX='extract_timeseries_index'
+OPT_GEOMETRY_DECIMAL_PLACES='geometry_decimal_places'
+OPT_FORCE_VALID_GEOMETRY='force_valid_geometry'
 DEFAULT_OPTIONS={
   OPT_UGLIFY_TAGS:False,
   OPT_UGLIFY_COVERAGE:False,
-  OPT_COMMON_TIMESERIES_INDEX:False
+  OPT_COMMON_TIMESERIES_INDEX:False,
+  OPT_GEOMETRY_DECIMAL_PLACES:None,
+  OPT_FORCE_VALID_GEOMETRY:False
 }
 
 DEFAULT_HOST_PORT=8000
@@ -414,6 +418,9 @@ class HydrographDataset(object):
         f.close()
 
     if decimal_places is None:
+      decimal_places = self.options[OPT_GEOMETRY_DECIMAL_PLACES]
+
+    if decimal_places is None:
       write_to(full_fn)
     else:
       import math
@@ -424,6 +431,9 @@ class HydrographDataset(object):
       assert os.system('ogr2ogr -f GeoJSON -simplify %f -lco COORDINATE_PRECISION=%s %s %s'%(simplify,decimal_places,full_fn,tmp_fn))==0
       logger.info(f'ogr2ogr successful')
       os.remove(tmp_fn)
+
+    if self.options[OPT_FORCE_VALID_GEOMETRY]:
+      self.load_coverage(fn)
 
   def add_timeseries(self,series,csv_options={},fn=None,**tags):
     self.require_writable()
@@ -513,16 +523,31 @@ class HydrographDataset(object):
 
   def get_coverages(self,**tags):
     coverages = self.match('coverages',**tags)
-    return [self.load_coverage(c) for c in coverages]
+    return [self.load_coverage(c['filename']) for c in coverages]
 
-  def load_coverage(self,record):
+  def load_coverage(self,filename):
     import geopandas as gpd
-    with _open(self.expand_path(record['filename']), auth=self.auth) as fp:
+    with _open(self.expand_path(filename), auth=self.auth) as fp:
       raw = json.load(fp)
-      gdf = gpd.GeoDataFrame.from_features(raw['features'])
-      if '_names' in raw:
-        gdf = gdf.rename(columns=raw['_names'])
-      return gdf
+    gdf = gpd.GeoDataFrame.from_features(raw['features'])
+    if '_names' in raw:
+      gdf = gdf.rename(columns=raw['_names'])
+
+    if self.options[OPT_FORCE_VALID_GEOMETRY]:
+      from shapely.validation import explain_validity
+      invalid_records = gdf[~gdf.geometry.is_valid]
+      if len(invalid_records) > 0:
+        issues = set(gdf.geometry.apply(lambda g:explain_validity(g)))
+        logger.warning('%d invalid geometries detected in coverage',len(invalid_records))
+        for issue in issues:
+          logger.warning('Geometry issue: %s',issue)
+        fixed = gdf.geometry.make_valid()
+        invalid_count = sum(~fixed.is_valid)
+        if invalid_count:
+          raise Exception('%d invalid geometries remain in coverage after make_valid'%invalid_count)
+        gdf.geometry = fixed
+
+    return gdf
 
   def load_time_series(self,record):
     try:
