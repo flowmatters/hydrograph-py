@@ -1,0 +1,7 @@
+numpy
+pandas
+requests
+#optional
+shapely
+geopandas
+pytest

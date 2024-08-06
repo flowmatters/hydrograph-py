@@ -1,6 +1,9 @@
 import atexit
 import os
-from io import StringIO
+try:
+  from io import StringIO
+except ImportError:
+  from StringIO import StringIO #python 2
 import shutil
 from collections import OrderedDict
 import logging
