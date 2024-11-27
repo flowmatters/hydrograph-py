@@ -317,7 +317,7 @@ class HydrographDataset(object):
 
   def _sanitize_tags(self,tags):
     return {k:self._sanitize_value(v) for k,v in tags.items()}
-
+  
   def _add_data_record(self,collection,fn,attributes={},**tags):
     tags = self._sanitize_tags(tags)
     existing = self.match(collection,**tags)
@@ -432,7 +432,7 @@ class HydrographDataset(object):
       write_to(full_fn)
     else:
       import math
-      simplify= math.pow(10,-decimal_places)
+      simplify = math.pow(10,-decimal_places)
       tmp_fn = tempfile.mktemp() + '.json'
       logger.info(f'Writing coverage to {tmp_fn} ahead of simplification to {decimal_places} decimal places')
       write_to(tmp_fn)
@@ -671,7 +671,7 @@ class APIDataSet(HydrographDataset):
     self.dataset = name
     self.owner = owner
     self.path = self.url
-  
+
   def tags(self):
     return _open(self.url + "tags/", raw=True)
 
@@ -711,4 +711,12 @@ class APIDataSet(HydrographDataset):
       # df.set_index("geometry", inplace=True)
     return dfs
 
-    
+def merge_indexes(datasets):
+  d = list(datasets)
+  assert len(d), "Error: No datasets provided to merger"
+  ret = d[0]
+  for ds in d[1:]:
+    assert ds.path == ret.path
+    assert ds.mode == ret.mode
+    ret.index.update(ds.index)
+  return ret
