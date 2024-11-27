@@ -122,6 +122,14 @@ class HydrographDataset(object):
     self.port = None
     self.host_process = None
 
+  def run_parrallel(self, function, batches, **dask_compute_kwargs):
+    import dask.bag as db
+    self.require_writable()
+    rewrite = self._rewrite
+    self.rewrite(False)
+    self.index = db.from_sequence(batches).map(function).reduction(merge_indexes,merge_indexes).compute().index
+    self.rewrite(rewrite)
+
   def require_writable(self):
     if 'w' not in self.mode:
       raise Exception('Dataset is not in read/write mode')
