@@ -372,11 +372,11 @@ class HydrographDataset(object):
     if auto_fn and _exists(full_fn, auth=self.auth):
       return fn
 
-    f = _open(full_fn,'w', auth=self.auth)
-    try:
+    with _open(full_fn,'w', auth=self.auth) as f:
+      # try:
       f.write(txt)
-    finally:
-      f.close()
+    # :
+    #   f.close()
 
     assert _exists(full_fn, auth=self.auth)
     return fn
@@ -427,11 +427,11 @@ class HydrographDataset(object):
     full_fn = self.expand_path(fn)
 
     def write_to(fn):
-      f = _open(fn,'w', auth=self.auth)
-      try:
+      with _open(fn,'w', auth=self.auth) as f:
+        # try:
         f.write(content)
-      finally:
-        f.close()
+      # finally:
+        # f.close()
 
     if decimal_places is None:
       decimal_places = self.options[OPT_GEOMETRY_DECIMAL_PLACES]
@@ -726,5 +726,21 @@ def merge_indexes(datasets):
   for ds in d[1:]:
     assert ds.path == ret.path
     assert ds.mode == ret.mode
-    ret.index.update(ds.index)
+    ret.index = _merge_index(ret.index, ds.index)
   return ret
+
+def _merge_index(_a,_b):
+  if _a == _b:
+      return _a
+  assert type(_a) == type(_b), "Error when merging indexes: different types"
+  if type(_a) == list:
+      return _a+_b
+  if type(_a) == dict or type(_a) == OrderedDict:
+      a = _a.copy()
+      for key, value in _b.items():
+          if key in a:
+              a[key]= _merge_index(a[key], value)
+          else:
+              a[key] = value
+      return a
+  raise Exception(f'Two non-equal, non combinable values encountered {_a}, {_b}')
