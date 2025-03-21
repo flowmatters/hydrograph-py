@@ -113,7 +113,7 @@ class HydrographDataset(object):
       self.load_index() 
     except:
       if mode in ['r','ro']:
-        raise Exception('Could not load index file')
+        raise Exception('Could not load index file for dataset at %s'%path)
       self.index = self.init_index() 
     
     self._rewrite = True
