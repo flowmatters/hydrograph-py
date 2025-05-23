@@ -59,6 +59,14 @@ DEFAULT_OPTIONS={
 DEFAULT_HOST_PORT=8000
 GIVE_UP_HOST_PORT=8100
 
+MODE_WRITE='w'
+MODE_READ='r'
+MODE_READ_ONLY='ro'
+MODE_READ_WRITE='rw'
+MODE_WRITE_NO_INDEX='wnoindex'
+WRITEABLE_MODES=[MODE_WRITE,MODE_READ_WRITE,MODE_WRITE_NO_INDEX]
+READONLY_MODES=[MODE_READ,MODE_READ_ONLY]
+
 def _open(fn,mode='r', raw=False, **kwargs):
   if '://' in fn:
     r = requests.get(fn, **kwargs)
@@ -91,7 +99,7 @@ class HydrographDataset(object):
   
     if "://" in path:
       # assume a remote dataset
-      if mode in ['w','rw']:
+      if mode in WRITEABLE_MODES:
         raise Exception('Cannot open remote dataset in write mode')
       self.is_remote = True
     else:
@@ -103,20 +111,23 @@ class HydrographDataset(object):
         logging.warning("No authentication provided for remote dataset")
     self.auth = requests.auth.HTTPBasicAuth(auth[0], auth[1]) # User, Password
     self.path = path
-    if mode=='rw':
+    if mode==MODE_READ_WRITE:
       self.ensure_directory()
 
-    if mode=='w':
+    if mode==MODE_WRITE:
       self.clear()
 
     try:
       self.load_index() 
     except:
-      if mode in ['r','ro']:
+      if mode in READONLY_MODES:
         raise Exception('Could not load index file for dataset at %s'%path)
       self.index = self.init_index() 
-    
-    self._rewrite = True
+
+    if mode==MODE_WRITE_NO_INDEX:
+      self._rewrite = False
+    else:
+      self._rewrite = True
 
     self.hosting = False
     self.port = None
@@ -133,6 +144,7 @@ class HydrographDataset(object):
     Disable (val=False) to prevent writing and hence speed up bulk writes
     '''
     self.require_writable()
+    assert self.mode != MODE_WRITE_NO_INDEX
     self._rewrite = val
     if val:
       self.write_index(compressed) 
@@ -197,6 +209,17 @@ class HydrographDataset(object):
     # if self.options[OPT_COMMON_TIMESERIES_INDEX]:
     #   result['timeseries_index'] = []
     return result
+
+  def _add_index(self,other_index):
+    for collection in COLLECTION_TYPES:
+      if collection not in other_index:
+        continue
+      if collection not in self.index:
+        self.index[collection] = []
+      self.index[collection] += other_index[collection]
+
+    if METADATA_KEY in other_index:
+      self.index[METADATA_KEY].update(other_index[METADATA_KEY])
 
   def write_index(self,compressed=False):
     if not self._rewrite:
