@@ -1,5 +1,6 @@
 import atexit
 import os
+import sys
 try:
   from io import StringIO
 except ImportError:
@@ -639,7 +640,7 @@ class HydrographDataset(object):
           port += 1
       raise Exception('Failed to find open port to host on')
 
-    self.host_process = subprocess.Popen(['python','-m','hydrograph._host',str(port)],cwd=self.path)
+    self.host_process = subprocess.Popen([sys.executable,'-m','hydrograph._host',str(port)],cwd=self.path)
     sleep(0.5)
     if self.host_process.poll() is not None:
       self.host_process = None
