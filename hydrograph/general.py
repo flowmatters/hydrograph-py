@@ -406,7 +406,15 @@ class HydrographDataset(object):
     self.require_writable()
     if hasattr(table, 'geometry'):
       raise Warning('Use add_coverage to add GeoDataFrames')
-    return self._add_tabular(table,'table','tables',csv_options,fn,**tags)
+    attributes={}
+    if (hasattr(table.index,'nlevels') and table.index.nlevels > 1) or \
+       (isinstance(table.index, pd.MultiIndex)):
+      attributes['n_index_levels'] = table.index.nlevels
+    if (hasattr(table.columns,'nlevels') and table.columns.nlevels > 1) or \
+       (isinstance(table.columns, pd.MultiIndex)):
+      attributes['n_column_levels'] = table.columns.nlevels
+
+    return self._add_tabular(table,'table','tables',csv_options,fn,attributes,**tags)
 
   def add_table_existing(self,fn,**tags):
     self.require_writable()
