@@ -97,7 +97,7 @@ class HydrographDataset(object):
     self.options = DEFAULT_OPTIONS.copy()
     self.options.update(options)
     self.options.update(kwargs)
-  
+
     if "://" in path:
       # assume a remote dataset
       if mode in WRITEABLE_MODES:
@@ -119,14 +119,15 @@ class HydrographDataset(object):
       self.clear()
 
     try:
-      self.load_index() 
+      self.load_index()
     except:
       if mode in READONLY_MODES:
         raise Exception('Could not load index file for dataset at %s'%path)
-      self.index = self.init_index() 
+      self.index = self.init_index()
 
     if mode==MODE_WRITE_NO_INDEX:
       self._rewrite = False
+      self.index = self.init_index()
     else:
       self._rewrite = True
 
@@ -148,14 +149,14 @@ class HydrographDataset(object):
     assert self.mode != MODE_WRITE_NO_INDEX
     self._rewrite = val
     if val:
-      self.write_index(compressed) 
+      self.write_index(compressed)
 
-  def expand_path(self,fn): 
+  def expand_path(self,fn):
     # if self.is_remote:
     #   return os.path.join(self.path,fn, )
     return os.path.join(self.path,fn)
 
-  def create_fn(self,prefix,ftype,contents): 
+  def create_fn(self,prefix,ftype,contents):
     ident = None
     try:
       from hashlib import md5
@@ -184,7 +185,7 @@ class HydrographDataset(object):
         ident = i
     return '%s_%s.%s'%(FILE_PREFIX[prefix],str(ident),ftype)
 
-  def load_index(self): 
+  def load_index(self):
     index_fn = self.expand_path(INDEX_FN)
     if self.is_remote:
       try:
@@ -676,6 +677,13 @@ def open_remote(url, auth = None, options=DEFAULT_OPTIONS, **kwargs) -> Hydrogra
   assert isinstance(url,str)
   return HydrographDataset(url, mode="r", options=options, auth = auth, **kwargs)
 
+def write_combined_index(dest,indexes):
+  mb_dataset = open_dataset(dest,MODE_READ_WRITE)
+  mb_dataset.rewrite(False)
+  for index in indexes:
+      mb_dataset._add_index(index)
+  mb_dataset.rewrite(True)
+
 def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
   full_content = dict()
 
@@ -703,7 +711,7 @@ class APIDataSet(HydrographDataset):
     self.dataset = name
     self.owner = owner
     self.path = self.url
-  
+
   def tags(self):
     return _open(self.url + "tags/", raw=True)
 
@@ -720,14 +728,14 @@ class APIDataSet(HydrographDataset):
       for k, entry in enumerate(indexes[i]):
         indexes[i][k] = datetime.datetime.fromtimestamp(entry/1000)
     return [pd.DataFrame(d["timeseries"][i]["values"], index=d["indexes"][i]) for i in range(len(d["indexes"]))]
-  
+
   def get_tables(self, **tags):
     d = self.match("tables", **tags)
     return [pd.DataFrame(i["data"], index=i["index"]) for i in d["tables"]]
-  
+
   def require_writable(self):
     raise Exception("Cannot write to API dataset")
-  
+
   def get_coverages(self, **tags):
     import geopandas as gpd
     d = self.match("tables", **tags)
@@ -743,4 +751,4 @@ class APIDataSet(HydrographDataset):
       # df.set_index("geometry", inplace=True)
     return dfs
 
-    
+
