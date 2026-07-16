@@ -9,7 +9,7 @@ keywords = ["hydrograph", "dataset"]
 license = {text = "ISC License"}
 version = "0.1"
 readme = {file = "README.md", content-type = "text/markdown"}
-# dependencies = ["requests", "pandas", "numpy", "StringIO"]
+dependencies = ["requests", "pandas", "numpy"]
 authors = [
     {name = "Joel Rahman", email = "joel@flowmatters.com.au"}
 ]
@@ -35,10 +35,7 @@ Homepage = "https://github.com/flowmatters/hydrograph-py"
 # [project.optional-dependencies]
 # test = ["pytest"]
 
-# [tool.setuptools.packages.find]
-
-[tools.setuptools]
+[tool.setuptools]
 include-package-data = true
 zip-safe = true
 packages = ["hydrograph"]
-py-modules = ["hydrograph"]
