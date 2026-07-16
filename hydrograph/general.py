@@ -223,6 +223,16 @@ class HydrographDataset(object):
     if METADATA_KEY in other_index:
       self.index[METADATA_KEY].update(other_index[METADATA_KEY])
 
+  def merge_index(self,other_index):
+    '''
+    Merge an index dictionary (typically returned from a worker that opened
+    the dataset with MODE_WRITE_NO_INDEX) into this dataset's index.
+
+    Returns self so calls can be chained.
+    '''
+    self._add_index(other_index)
+    return self
+
   def write_index(self,compressed=False):
     if not self._rewrite:
       return
@@ -678,11 +688,15 @@ def open_remote(url, auth = None, options=DEFAULT_OPTIONS, **kwargs) -> Hydrogra
   return HydrographDataset(url, mode="r", options=options, auth = auth, **kwargs)
 
 def write_combined_index(dest,indexes):
-  mb_dataset = open_dataset(dest,MODE_READ_WRITE)
-  mb_dataset.rewrite(False)
+  '''
+  Merge index dictionaries returned from workers that wrote data files to
+  ``dest`` with MODE_WRITE_NO_INDEX, then persist the combined index.
+  '''
+  ds = open_dataset(dest,MODE_READ_WRITE)
+  ds.rewrite(False)
   for index in indexes:
-      mb_dataset._add_index(index)
-  mb_dataset.rewrite(True)
+      ds.merge_index(index)
+  ds.rewrite(True)
 
 def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
   full_content = dict()
