@@ -18,7 +18,6 @@ import tempfile
 from .minify import minify_geojson
 from time import sleep
 import requests
-import datetime
 
 logger = logging.getLogger('hydrograph')
 
@@ -684,8 +683,25 @@ def open_dataset(path,mode='rw',options=DEFAULT_OPTIONS,**kwargs) -> HydrographD
   return HydrographDataset(path,mode,options, auth=None, **kwargs)
 
 def open_remote(url, auth = None, options=DEFAULT_OPTIONS, **kwargs) -> HydrographDataset:
+  '''
+  Open a remote dataset for reading.
+
+  Tries to open a static dataset (index.json) first, and falls back to a
+  Hydrograph server-side dataset (REST API) if no index is found.
+  '''
   assert isinstance(url,str)
-  return HydrographDataset(url, mode="r", options=options, auth = auth, **kwargs)
+  try:
+    return HydrographDataset(url, mode="r", options=options, auth = auth, **kwargs)
+  except Exception as static_error:
+    from .server import HydrographServerDataset
+    try:
+      ds = HydrographServerDataset(url, auth=auth, options=options, **kwargs)
+      ds.tags() # validate the dataset exists (result is cached)
+      logger.info('No index.json at %s, opened as server-side dataset',url)
+      return ds
+    except Exception as server_error:
+      raise Exception('Could not open %s as a static dataset (%s) or server-side dataset (%s)'%(
+        url,static_error,server_error))
 
 def write_combined_index(dest,indexes):
   '''
@@ -717,52 +733,4 @@ def make_reference_dashboard(owner,name,prefix='',content={},**kwargs):
 def copy_if_not_exist(source,dest):
   if not os.path.exists(dest):
     shutil.copy(source,dest)
-
-class APIDataSet(HydrographDataset):
-  def __init__(self, name, url_base = API_URL, owner="joel"):
-    # super().__init__(name, mode="r")
-    self.url = url_base + owner+ "/" + name + "/"
-    self.dataset = name
-    self.owner = owner
-    self.path = self.url
-
-  def tags(self):
-    return _open(self.url + "tags/", raw=True)
-
-  def tag_values(self, tag):
-    return _open(self.url + "tags/" + tag + "/", raw=True)
-
-  def match(self, datatype="tables", **tags)-> dict:
-    return _open(self.url + "{}?".format(datatype) + "&".join([f"{k}={v}" for k,v in tags.items()]), raw=True)
-
-  def get_timeseries(self, **tags):
-    d = self.match("timeseries", **tags)
-    indexes = d["indexes"]
-    for i in range(len(indexes)):
-      for k, entry in enumerate(indexes[i]):
-        indexes[i][k] = datetime.datetime.fromtimestamp(entry/1000)
-    return [pd.DataFrame(d["timeseries"][i]["values"], index=d["indexes"][i]) for i in range(len(d["indexes"]))]
-
-  def get_tables(self, **tags):
-    d = self.match("tables", **tags)
-    return [pd.DataFrame(i["data"], index=i["index"]) for i in d["tables"]]
-
-  def require_writable(self):
-    raise Exception("Cannot write to API dataset")
-
-  def get_coverages(self, **tags):
-    import geopandas as gpd
-    d = self.match("tables", **tags)
-    from shapely.geometry import shape #index=i["index"]
-    dfs = [gpd.GeoDataFrame(i["data"]) for i in d["tables"] if "geometry" in i["data"].keys()]
-    for k, df in enumerate(dfs):
-      # df["geometry"] = df.apply(lambda x: shape(x["geometry"])) #TD fix this to accellerate
-      geometry = []
-      for feature in df["geometry"]:
-        f = shape(feature)
-        geometry.append(f)
-      df.set_geometry(geometry, inplace=True)
-      # df.set_index("geometry", inplace=True)
-    return dfs
-
 
